@@ -316,12 +316,36 @@ export function AppProvider({ children }) {
   }
 
   async function signup(form) {
-    const data = await api("/auth/signup", {
+    const isRestaurantAdmin = form.role === "restaurant_admin";
+    const endpoint = isRestaurantAdmin ? "/auth/admin-register" : "/auth/signup";
+    const payload = isRestaurantAdmin
+      ? {
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          restaurantName: form.restaurantName,
+          cuisine: form.cuisine,
+          location: form.location,
+          priceForTwo: form.priceForTwo ? Number(form.priceForTwo) : undefined,
+          deliveryTime: form.deliveryTime,
+        }
+      : {
+          name: form.name,
+          email: form.email,
+          password: form.password,
+        };
+
+    const data = await api(endpoint, {
       method: "POST",
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     saveAuth(data.token, data.user);
     await Promise.all([refreshProfile(data.token), refreshNotifications(data.token, true)]);
+
+    if (data.user.role === "restaurant_admin") {
+      await Promise.all([refreshRestaurantAdminDashboard(data.token), refreshRestaurants()]);
+    }
+
     return data;
   }
 
